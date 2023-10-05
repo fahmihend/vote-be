@@ -35,10 +35,16 @@ controller.login = async (req, res) => {
   const { username, password } = req.body;
   try {
     const existed = await user.findOne({ username });
-    if (!existed || !bcrypt.compare(password, existed.password)) {
+    if (!existed) {
       return res
         .status(422)
-        .json({ status: "Failed", message: "Wrong password user not exist" });
+        .json({ status: "Failed", message: "User not exist" });
+    }
+    const passwordMatch = await bcrypt.compare(password, existed.password);
+    if (!passwordMatch) {
+      return res
+        .status(422)
+        .json({ status: "Failed", message: "Wrong password" });
     }
     const token = await auth.generateToken({
       username,
@@ -51,7 +57,7 @@ controller.login = async (req, res) => {
       data: { token: token, role: existed.role, isVoted: existed.isVoted },
     });
   } catch (error) {
-    res.status(400).json({ status: "Failed", message: e.message });
+    res.status(400).json({ status: "Failed", message: error.message });
   }
 };
 
@@ -72,18 +78,27 @@ controller.addVote = async (req, res) => {
   const { name } = req.body;
   try {
     const auth = req.user;
-    const userData = await user.findOne({username: auth.username})
+    if (name === null || name === "") {
+      return res
+        .status(400)
+        .json({ status: "Failed", message: "Pleace provide name" });
+    }
+    const userData = await user.findOne({ username: auth.username });
     if (auth.role === "admin" || userData.isVoted === true) {
       const message =
         auth.role === "admin" ? `Admin can't vote` : `Can only vote once`;
-      return res.status(400).json({ status: "Failed", message: message });
+      return res.status(403).json({ status: "Failed", message: message });
     }
-    const votedList = await vote.findOne({name: name});
-      const query = { name: name };
-      const update = { $set: {count: votedList.count + 1} };
-      const option = { upsert: true }
-      await vote.updateOne(query, update, option);
-      await user.updateOne({username: auth.username}, {$set: {isVoted: true}}, {})
+    const votedList = await vote.findOne({ name: name });
+    const query = { name: name };
+    const update = { $set: { count: votedList ? votedList.count + 1 : 1 } };
+    const option = { upsert: true };
+    await vote.updateOne(query, update, option);
+    await user.updateOne(
+      { username: auth.username },
+      { $set: { isVoted: true } },
+      {}
+    );
     res.status(200).json({ status: "Success", message: "Successfully voted" });
   } catch (e) {
     res.status(400).json({ status: "Failed", message: e.message });
