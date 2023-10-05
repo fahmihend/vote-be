@@ -1,7 +1,7 @@
 // Middleware for authentication
 const jwt = require('jsonwebtoken');
 const authenticateJWT = (req, res, next) => {
-  const token = (req.headers.authorization).split('Bearer ')[1];
+  const token = (req.headers?.authorization)?.split('Bearer ')[1];
   if (!token) {
     return res.status(401).json({ status: 'Failed', message: 'Token not provided' });
   }

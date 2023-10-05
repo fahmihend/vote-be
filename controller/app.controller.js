@@ -87,7 +87,8 @@ controller.addVote = async (req, res) => {
     if (auth.role === "admin" || userData.isVoted === true) {
       const message =
         auth.role === "admin" ? `Admin can't vote` : `Can only vote once`;
-      return res.status(403).json({ status: "Failed", message: message });
+      const status = auth.role === 'admin' ? 403 : 422;
+      return res.status(status).json({ status: "Failed", message: message });
     }
     const votedList = await vote.findOne({ name: name });
     const query = { name: name };
